@@ -8,11 +8,7 @@ import {
   getSecondKey,
 } from "@meteora-ag/cp-amm-sdk";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import {
-  createMint,
-  getOrCreateAssociatedTokenAccount,
-  mintTo,
-} from "@solana/spl-token";
+import { createMint, getOrCreateAssociatedTokenAccount, mintTo } from "@solana/spl-token";
 
 import { BN } from "bn.js";
 import { CpiExampleDammV2 } from "../target/types/cpi_example_damm_v2";
@@ -25,8 +21,7 @@ describe("cpi_example_damm_v2", () => {
 
   anchor.setProvider(provider);
 
-  const program = anchor.workspace
-    .cpi_example_damm_v2 as Program<CpiExampleDammV2>;
+  const program = anchor.workspace.cpi_example_damm_v2 as Program<CpiExampleDammV2>;
 
   // instance of the CpAmm SDK
   const cpAmm = new CpAmm(connection);
@@ -35,25 +30,11 @@ describe("cpi_example_damm_v2", () => {
   let mintB: PublicKey;
 
   // pool authority: https://docs.meteora.ag/developer-guide/guides/damm-v2/overview
-  const poolAuthority = new PublicKey(
-    "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
-  );
+  const poolAuthority = new PublicKey("HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC");
 
   before(async () => {
-    mintA = await createMint(
-      connection,
-      wallet.payer,
-      wallet.publicKey,
-      null,
-      6
-    );
-    mintB = await createMint(
-      connection,
-      wallet.payer,
-      wallet.publicKey,
-      null,
-      9
-    );
+    mintA = await createMint(connection, wallet.payer, wallet.publicKey, null, 6);
+    mintB = await createMint(connection, wallet.payer, wallet.publicKey, null, 9);
 
     // logs to use then instead of generating new ones each time
     console.log("---- mintA:", mintA.toBase58());
@@ -157,10 +138,7 @@ describe("cpi_example_damm_v2", () => {
     // Position NFT account PDA.
     // Account that stores the NFT representing the user's liquidity position.
     const [positionNftAccount] = PublicKey.findProgramAddressSync(
-      [
-        Buffer.from("position_nft_account"),
-        positionNftMint.publicKey.toBuffer(),
-      ],
+      [Buffer.from("position_nft_account"), positionNftMint.publicKey.toBuffer()],
       cpAmm._program.programId
     );
 
@@ -193,7 +171,8 @@ describe("cpi_example_damm_v2", () => {
         payerTokenA: mintAata.address, // User account providing token A
         payerTokenB: mintBata.address, // User account providing token B
         config: allConfigs[1].publicKey, // Protocol config used for this pool
-        tokenProgram: TOKEN_PROGRAM_ID, // SPL Token Program
+        tokenAProgram: TOKEN_PROGRAM_ID, // SPL Token Program
+        tokenBProgram: TOKEN_PROGRAM_ID, // SPL Token Program
         pool: poolPda, // Pool account being created
         poolAuthority: poolAuthority, // Pool authority (administrative operations)
         eventAuthority: eventAuthorityPda, // Authority used to emit events
@@ -208,26 +187,13 @@ describe("cpi_example_damm_v2", () => {
   });
 
   it("get initialized pool", async () => {
-    const allConfigs = await cpAmm.getAllConfigs();
+    const pools = await cpAmm.fetchPoolStatesByTokenAMint(mintA);
 
-    const [poolPda] = PublicKey.findProgramAddressSync(
-      [
-        Buffer.from("pool"),
-        allConfigs[1].publicKey.toBuffer(),
-        getFirstKey(mintA, mintB),
-        getSecondKey(mintA, mintB),
-      ],
-      cpAmm._program.programId
-    );
-
-    const pool = await cpAmm.fetchPoolState(poolPda);
+    const pool = pools.find((p) => p.account.tokenBMint.equals(mintB));
 
     console.log("---- initialized pool:", JSON.stringify(pool, null, 2));
 
-    const getPositionNft = await cpAmm.getUserPositionByPool(
-      poolPda,
-      wallet.publicKey
-    );
+    const getPositionNft = await cpAmm.getUserPositionByPool(pool.publicKey, wallet.publicKey);
 
     console.log(
       "---- wallet position nft:",
